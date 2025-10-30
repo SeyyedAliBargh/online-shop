@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <h1>Edit Profile</h1>
+    <form method="post" action="{% url 'account:edit_profile' profile.id %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <!-- تصویر پروفایل -->
+    <label for="id_image">تصویر پروفایل</label>
+    <input type="file" name="image" id="id_image" class="form-control">
+
+    <!-- ایمیل -->
+    <label for="id_user">ایمیل</label>
+    <input type="text" name="user" id="id_user" class="form-control" value="{{ user.email }}">
+
+    <!-- نام -->
+    <label for="id_first_name">نام</label>
+    <input type="text" name="first_name" id="id_first_name" placeholder="نام" class="form-control" value="{{ user.profile.first_name }}">
+
+    <!-- نام خانوادگی -->
+    <label for="id_last_name">نام خانوادگی</label>
+    <input type="text" name="last_name" id="id_last_name" placeholder="نام خانوادگی" class="form-control" value="{{ user.profile.last_name }}">
+
+    <!-- تاریخ تولد -->
+    <label for="birth_date">تاریخ تولد</label>
+    <input type="text" id="birth_date" name="birth_date" placeholder="تاریخ تولد" class="form-control" value="{{ user.profile.birth_date|default_if_none:'' }}">
+
+    <button type="submit" class="btn btn-primary mt-3">ذخیره</button>
+</form>
+
+</body>
+</html>
