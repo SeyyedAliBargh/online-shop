@@ -1,0 +1,240 @@
+<!--
+
+📄 Template: shop/product_detail.html
+🔗 View: product_detail(request, slug)
+🎯 Purpose: نمایش جزئیات یک محصول، همراه با نظرات، امتیاز، و محصولات مرتبط.
+
+✅ در این تمپلیت، مقادیر زیر از view ارسال می‌شوند:
+
+──────────────────────────────────────────────
+🧱 1️⃣ product  → از مدل Product
+──────────────────────────────────────────────
+دارای فیلدهای زیر است:
+    • product.id → شناسه محصول
+    • product.name → نام محصول
+    • product.slug → اسلاگ (برای URL)
+    • product.category → شیء مربوط به Category (دسته‌بندی)
+        └── product.category.name → نام دسته
+    • product.description → توضیحات محصول
+    • product.brand → برند (ممکن است خالی باشد)
+    • product.weight → وزن محصول (گرم)
+    • product.original_price → قیمت اصلی
+    • product.discount → درصد تخفیف (اختیاری)
+    • product.discounted_price → قیمت بعد از تخفیف
+    • product.views → تعداد بازدیدها
+    • product.sold_count → تعداد فروش
+    • product.average_rating → میانگین امتیاز (عدد بین 0 تا 5)
+    • product.rating_count → تعداد افرادی که امتیاز داده‌اند
+    • product.get_absolute_url → آدرس جزئیات محصول
+
+    🔹 ارتباط‌ها:
+    • product.images.all → لیست تصاویر محصول (مدل Image)
+        ▫ image.image_file.url → مسیر عکس
+        ▫ image.title → عنوان عکس
+        ▫ image.description → توضیح عکس
+
+    • product.features.all → ویژگی‌های محصول (مدل ProductFeature)
+        ▫ feature.name → نام ویژگی (مثلاً «وزن»، «نوع بسته‌بندی»)
+        ▫ feature.value → مقدار ویژگی
+
+    • product.comments.all → لیست تمام نظرات محصول (مدل Comment)
+
+──────────────────────────────────────────────
+🧩 2️⃣ related_product → QuerySet از مدل Product
+──────────────────────────────────────────────
+محصولات مشابه که در همان دسته هستند (بجز محصول فعلی)، محدود به ۳ عدد.
+    ▫ هر مورد مشابه تمام فیلدهای product را دارد (name, slug, image, price, ...)
+
+──────────────────────────────────────────────
+💬 3️⃣ comments → QuerySet از مدل Comment
+──────────────────────────────────────────────
+فقط نظرات سطح اول (parent__isnull=True)
+    ▫ comment.user → کاربری که نظر داده
+        └── comment.user.username → نام کاربر
+    ▫ comment.body → متن نظر
+    ▫ comment.created → تاریخ ارسال نظر
+    ▫ comment.replies.all → پاسخ‌ها به همان نظر
+
+──────────────────────────────────────────────
+⭐ 4️⃣ rating_percent → مقدار عددی (۰ تا ۱۰۰)
+──────────────────────────────────────────────
+درصد تبدیل‌شده از میانگین امتیاز محصول برای استفاده در progress bar یا ستاره‌ها.
+    ▫ محاسبه‌شده به‌صورت: (average_rating / 5) * 100
+
+──────────────────────────────────────────────
+🧍 5️⃣ user_rating → عدد یا None
+──────────────────────────────────────────────
+اگر کاربر وارد سیستم شده باشد و قبلاً امتیاز داده باشد، عددی بین ۱ تا ۵ دارد.
+در غیر اینصورت مقدار None است.
+    ▫ قابل استفاده برای نمایش وضعیت ستاره‌ها برای کاربر.
+
+──────────────────────────────────────────────
+🗒️ 6️⃣ form → نمونه از CommentForm
+──────────────────────────────────────────────
+فرمی برای ارسال نظر جدید.
+    ▫ شامل فقط یک فیلد:
+        • form.body → فیلد متن نظر
+
+──────────────────────────────────────────────
+💡 نکات پیشنهادی برای فرانت:
+──────────────────────────────────────────────
+- از product.images.first برای نمایش تصویر اصلی استفاده کن.
+- از related_product برای نمایش «محصولات مشابه» در انتهای صفحه.
+- از rating_percent برای نمایش درصد پر شدن ستاره‌ها.
+- از user_rating برای نمایش ستاره‌های انتخاب‌شده کاربر در بخش امتیازدهی.
+- از form برای ایجاد textarea و دکمه ارسال نظر.
+- از comments برای ساخت بخش نظرات و پاسخ‌ها.
+
+
+ -->
+
+
+{% extends 'parent/base.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <!-- Product Information -->
+        <div class="col-md-6">
+            <img src="{{ product.images.first.image_file.url }}" alt="{{ product.name }}" class="img-fluid rounded">
+        </div>
+
+        <div class="col-md-6">
+            <h2>{{ product.name }}</h2>
+            <p class="text-muted">{{ product.category.name }}</p>
+            <p>{{ product.description }}</p>
+            <p><strong>Price:</strong> {{ product.discounted_price }} تومان</p>
+            <p><strong>Rating:</strong> {{ product.average_rating }} / 5 ({{ product.rating_count }} votes)</p>
+
+            <!-- Rating Section -->
+            <div class="rating-section mt-4">
+                <h5>Rate this product</h5>
+
+                {% if user.is_authenticated %}
+                <form id="ratingForm" method="POST">
+                    {% csrf_token %}
+                    <div class="rating-stars" id="starContainer">
+                        {% for i in "12345" %}
+                        <span class="star" data-value="{{ forloop.counter }}">⭐</span>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" name="score" id="scoreInput">
+                    <button type="submit" class="btn btn-primary mt-3">Submit Rating</button>
+                </form>
+                <div id="ratingMessage" class="mt-3"></div>
+
+
+                {% else %}
+                <p class="text-danger mt-2">
+                    Please <a href="{% url 'account:login' %}">login</a> to rate this product.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ajax Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('ratingForm');
+    const stars = document.querySelectorAll('.star');
+    const scoreInput = document.getElementById('scoreInput');
+    const messageBox = document.getElementById('ratingMessage');
+    let selectedRating = 0;
+
+    // ⭐ وقتی روی یک ستاره کلیک می‌کنی
+    stars.forEach(star => {
+        star.addEventListener('click', () => {
+            selectedRating = parseInt(star.dataset.value);
+            scoreInput.value = selectedRating;
+            updateStars(selectedRating);
+        });
+
+        star.addEventListener('mouseover', () => {
+            updateStars(parseInt(star.dataset.value));
+        });
+
+        star.addEventListener('mouseleave', () => {
+            updateStars(selectedRating);
+        });
+    });
+
+    // تابع برای آپدیت ظاهر ستاره‌ها
+    function updateStars(rating) {
+        stars.forEach(star => {
+            if (parseInt(star.dataset.value) <= rating) {
+                star.classList.add('active');
+            } else {
+                star.classList.remove('active');
+            }
+        });
+    }
+
+    // ارسال AJAX
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!scoreInput.value) {
+            messageBox.innerHTML = '<div class="text-warning">Please select a rating first.</div>';
+            return;
+        }
+
+        try {
+            const response = await fetch("{% url 'shop:rate_product' product.id %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ score: scoreInput.value })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+
+                messageBox.innerHTML = `
+                    <div class="text-success">
+                        ✅ Rating submitted successfully! <br>
+                        Average: ${data.average.toFixed(1)} / 5 (${data.count} votes)
+                    </div>`;
+            } else {
+                messageBox.innerHTML = `<div class="text-danger">Error: ${data.error}</div>`;
+            }
+
+        } catch (error) {
+            messageBox.innerHTML = '<div class="text-danger">Something went wrong. Please try again later.</div>';
+        }
+    });
+});
+</script>
+
+<!-- ⭐ Style -->
+<style>
+.rating-stars {
+    display: flex;
+    gap: 10px;
+    flex-direction: row;
+    justify-content: start;
+}
+
+.star {
+    font-size: 2.5rem;
+    color: #ddd;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.star.active {
+    color: #f39c12;
+}
+
+.star:hover {
+    transform: scale(1.1);
+}
+</style>
+
+{% endblock %}

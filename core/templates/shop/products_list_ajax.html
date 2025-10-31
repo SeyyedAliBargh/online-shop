@@ -1,0 +1,12 @@
+{% for product in products %}
+    <div class="">
+        <img style="width: 10rem" src="{{ product.images.first.image_file.url }}" alt="product">
+        <a href="{{ product.get_absolute_url }}">
+            <P>{{ product.name }}</P>
+            <P>{{ product.inventory }}</P>
+            <p>قیمت محصول{{ product.original_price }}</p>
+            <p>درصد تخفیف{{ product.discount }}</p>
+            <p>قیمت پس از تخفیف{{ product.discount_price }}</p>
+        </a>
+    </div>
+{% endfor %}
