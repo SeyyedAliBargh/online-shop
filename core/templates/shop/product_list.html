@@ -1,0 +1,150 @@
+<!--
+📦 Context Notes for Frontend Developer
+----------------------------------------
+In this template, we have access to the variable: **products**
+
+Each `product` object contains the following properties (from the Product model):
+
+🧾 Basic Info:
+    - id: integer → unique product ID
+    - name: string → product name
+    - description: text → full description
+    - slug: string → used for product detail URL
+    - category: object → related category (use `product.category.name` for its name)
+    - brand: string → product brand (optional)
+    - weight: integer → weight in grams
+    - inventory: integer → available stock count
+
+💰 Pricing:
+    - original_price: integer → base price (before discount)
+    - discount: integer → discount percent (0–100)
+    - discounted_price: integer → price after applying discount
+
+⭐ Ratings:
+    - average_rating: decimal (e.g., 4.25) → average user rating
+    - rating_count: integer → number of users who rated the product
+
+📈 Statistics:
+    - views: integer → total product views
+    - sold_count: integer → total units sold
+
+📅 Dates:
+    - created_at: datetime (jalali) → creation date
+    - updated_at: datetime (jalali) → last updated
+
+🖼️ Related Data:
+    - images: list of Image objects → each image has:
+{#        * image_file → URL of product image (use {{ image.image_file.url }})#}
+        * title → image title
+        * description → optional image description
+    - features: list of ProductFeature objects → each has:
+        * name → feature title (e.g., "Color", "Size")
+        * value → feature value (e.g., "Green", "500g")
+    - comments: list of Comment objects → each comment has:
+{#        * user → comment author (use {{ comment.user.username }})#}
+        * body → comment text
+        * created → creation date
+        * replies → nested comments (if exist)
+    - ratings: list of Rating objects → each rating has:
+        * user → who rated the product
+        * score → integer from 1 to 5
+
+⚙️ Useful Django Template Access Examples:
+{#    {{ product.name }}#}
+{#    {{ product.discounted_price }}#}
+{#    {{ product.images.first.image_file.url }}#}
+{#    {{ product.features.all }}#}
+{#    {{ product.comments.count }}#}
+{#    {{ product.get_absolute_url }}#}
+
+----------------------------------------
+💡 Note:
+If you're displaying multiple products (e.g., product list page),
+{#`products` will likely be a queryset (loop with `{% for product in products %}`).#}
+
+If you're displaying a single product (e.g., detail page),
+{#you’ll access fields directly (e.g., `{{ product.name }}`, `{{ product.description }}`).#}
+----------------------------------------
+-->
+{% extends 'parent/base.html' %}
+{% load static %}
+{% block head %}
+{% endblock %}
+
+{% block content %}
+
+    <main>
+        <div class="container">
+            <div class="products-list">
+                <ul class="products-list__li">
+                    {% for product in products %}
+                        <li class="products-list__ele">
+                            <a class="products-lists__link" href="{{ product.get_absolute_url }}">
+                                <div class="img-box">
+                                    <img class="img-box__img" src="{{ product.images.first.image_file.url }}" alt="products list">
+                                </div>
+                                <div class="name-box">
+                                    <h5 class="name-box__text">{{ product.name | truncatechars:50  }}</h5>
+                                </div>
+                                <div class="rating-box">
+                                    <p class="rating-box__text">{{ product.average_rating  }}</p>
+                                    <span class="rating-box__svg">★</span>
+                                </div>
+                                <div class="price-box">
+                                    {% if product.discount is not None %}
+                                        <div class="price-box__discount"><span>{{ product.discount }}%</span></div>
+                                        <div class="price-box__dic__price"><span>تومان{{ product.discount_price }}</span></div>
+                                    {% else %}
+                                        <div class="price-box__original">تومان<span class="price-box__original">{{ product.original_price }}</span></div>
+                                    {% endif %}
+                                </div>
+                                {% if product.discount is not None %}
+                                <div class="original-box">
+                                    <p class="original-box__price">{{ product.original_price }}</p>
+                                </div>
+                                {% endif %}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+
+            </div>
+        </div>
+    </main>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    $(document).ready(function (){
+        let page = 2;
+        let loading = false;
+
+        $(window).on('scroll', function (){
+            let lastPost = $('.post').last();
+            if (lastPost.length === 0) return;
+
+            let scrollTop = $(window).scrollTop();
+            let windowHeight = $(window).height();
+            let postOffset = lastPost.offset().top;
+            if (scrollTop + windowHeight >= postOffset - 100) {
+                loadMoreProducts();
+        }
+
+    })
+
+        function loadMoreProducts(){
+            if (loading) return;
+            loading = true;
+            $.ajax({
+                type: 'GET',
+                url: '{% url "shop:products_list" %}' + '?page=' + page,
+                dataType: 'html',
+                success: function (response){
+                    $('.products_list').append(response)
+                }
+            })
+        }
+    })
+</script>
+
+{% endblock %}

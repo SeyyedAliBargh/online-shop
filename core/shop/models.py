@@ -1,202 +1,144 @@
-from django.db import models
 import os
 from PIL import Image as PilImage
-from django.urls import reverse
-from account.models import ShopUser
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.db.models import Avg, Count
+from django.urls import reverse
+from django_jalali.db import models as jmodels
 from django.utils.text import slugify
 from django_resized import ResizedImageField
-from django_jalali.db import models as jmodels
-from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db.models import Avg, Count
-from mptt.models import MPTTModel, TreeForeignKey
-from django.utils import timezone
 from account.models import ShopUser
 
 
-
-
-# Create your models here.
-class Category(MPTTModel):
-    name = models.CharField(max_length=100, verbose_name='دسته بندی')
-    slug = models.SlugField(max_length=100, unique=True, verbose_name='اسلاگ')
-    parent = TreeForeignKey(
-        'self',
-        on_delete=models.CASCADE,
-        related_name='children',
-        null=True,
-        blank=True,
-    )
-
-    class MPTTMeta:
-        order_insertion_by = ['name']
-
-    class Meta:
-        verbose_name = "دسته‌بندی"
-        verbose_name_plural = "دسته‌بندی‌ها"
+class Category(models.Model):
+    """
+    Category model for classifying products.
+    """
+    name = models.CharField(max_length=100, verbose_name='name')
+    slug = models.SlugField(max_length=100, unique=True, verbose_name='slug')
+    created = models.DateTimeField(auto_now_add=True, verbose_name='created at')
 
     def __str__(self):
-        full_path = [self.name]
-        k = self.parent
-        while k is not None:
-            full_path.append(k.name)
-            k = k.parent
-        return ' → '.join(full_path[::-1])
+        return self.name
 
 
 class Product(models.Model):
     """
-    This model manages 'products' and creates a new `Product` instance.
+    Product model containing basic product info, pricing, discount logic,
+    and rating aggregation.
     """
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-
-    inventory = models.PositiveIntegerField(default=0, verbose_name='موجودی')
-
-    name = models.CharField(max_length=100, verbose_name='نام محصول')
-    description = models.TextField(verbose_name='توضیحات')
-    slug = models.SlugField(max_length=100, unique=True, verbose_name='اسلاگ')
-
-    weight = models.PositiveIntegerField(default=0)
-    brand = models.CharField(max_length=250, blank=True, null=True)
-    original_price = models.PositiveIntegerField(default=0, verbose_name='قیمت')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='products', verbose_name='category')
+    inventory = models.PositiveIntegerField(default=0, verbose_name='inventory')
+    name = models.CharField(max_length=100, verbose_name='name')
+    description = models.TextField(verbose_name='description')
+    slug = models.SlugField(max_length=100, unique=True, verbose_name='slug')
+    weight = models.PositiveIntegerField(default=0, verbose_name='weight (grams)')
+    brand = models.CharField(max_length=250, blank=True, null=True, verbose_name='brand')
+    original_price = models.PositiveIntegerField(default=0, verbose_name='original price')
     discount = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
-        help_text="درصد تخفیف بین ۰ تا ۱۰۰",
+        help_text="Discount percent must be between 0 and 100.",
         null=True,
-        blank=True
+        blank=True,
+        verbose_name='discount (%)'
     )
-    discount_price = models.PositiveIntegerField(default=0, verbose_name='قیمت بعد از تخقیف', null=True, blank=True)
-    created_at = jmodels.jDateTimeField(auto_now_add=True, verbose_name='زمان ایجاد')
-    updated_at = jmodels.jDateTimeField(auto_now=True, verbose_name='زمان اپدیت')
-    views = models.PositiveIntegerField(default=0, verbose_name='تعداد بازدید')
-    sold_count = models.PositiveIntegerField(default=0)
+    discounted_price = models.PositiveIntegerField(default=0, verbose_name='price after discount', null=True, blank=True)
+    created_at = jmodels.jDateTimeField(auto_now_add=True, verbose_name='created at')
+    updated_at = jmodels.jDateTimeField(auto_now=True, verbose_name='updated at')
+    views = models.PositiveIntegerField(default=0, verbose_name='views')
+    sold_count = models.PositiveIntegerField(default=0, verbose_name='sold count')
 
     # product rating
-    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
-    rating_count = models.PositiveIntegerField(default=0)
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0, verbose_name='average rating')
+    rating_count = models.PositiveIntegerField(default=0, verbose_name='rating count')
 
     class Meta:
-        ordering = ('name',)
-        indexes = [models.Index(fields=['name'])]
-
-        verbose_name = 'محصول'
-        verbose_name_plural = 'محصولات'
+        ordering = ('name', 'created_at')
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['created_at']),
+        ]
+        verbose_name = 'product'
+        verbose_name_plural = 'products'
 
     def __str__(self):
         return self.name
 
     def get_absolute_url(self):
         """
-         Returns the absolute URL for the product detail page.
-
-         This method uses Django's `reverse` function to generate the URL
-         based on the product's slug and the named URL pattern 'shop:product_detail'.
-
-        Returns:
-        str: The absolute URL of the product detail page.
+        Returns the absolute URL for the product.
         """
         return reverse('shop:product_detail', kwargs={'slug': self.slug})
 
     def save(self, *args, **kwargs):
         """
-        This function creates slugs based on product name.
+        Automatically generates a slug and calculates discounted price before saving.
         """
         if not self.slug:
             self.slug = slugify(self.name, allow_unicode=True)
+        if self.discount:
+            self.discounted_price = int(self.original_price * (100 - self.discount) / 100)
+        else:
+            self.discounted_price = self.original_price
         super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        """
-        Deletes the product instance and removes all associated image files from storage.
-
-        This method overrides the default delete behavior to ensure that all image files
-        linked to the product are explicitly deleted from the file system before the
-        database record is removed.
-
-        Args:
-            *args: Variable length argument list.
-            **kwargs: Arbitrary keyword arguments.
-        """
-
-        for img in self.images.all():
-            storage, path = img.image_file.storage, img.image_file.path
-            storage.delete(path)
-        super().delete(*args, **kwargs)
 
     def update_rating(self):
         """
-        Updates the average rating and rating count for the object.
-
-        This method calculates the average score and total number of ratings
-        from the related `ratings` queryset using Django's aggregation functions.
-        It then updates the `average_rating` and `rating_count` fields and saves
-        the changes to the database.
-
-        Returns:
-            None
+        Updates product's average rating and count based on related ratings.
         """
-
         agg = self.ratings.aggregate(avg=Avg('score'), count=Count('id'))
         self.average_rating = agg['avg'] or 0
         self.rating_count = agg['count'] or 0
         self.save(update_fields=['average_rating', 'rating_count'])
 
 
-
-
-
 class ProductFeature(models.Model):
     """
-    This model manages product features and creates a new `ProductFeature` instance.
+    Each product can have one or many features (key-value attributes).
     """
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='features')
-    name = models.CharField(max_length=100, verbose_name='ویژگی')
-    value = models.CharField(max_length=250, verbose_name='مقدار')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='features', verbose_name='product')
+    name = models.CharField(max_length=100, verbose_name='feature name')
+    value = models.CharField(max_length=250, verbose_name='feature value')
 
     class Meta:
-        verbose_name = "ویژگی"
-        verbose_name_plural = "ویژگی ها"
-
-
         ordering = ('name',)
         indexes = [models.Index(fields=['name'])]
+        verbose_name = "feature"
+        verbose_name_plural = "features"
 
     def __str__(self):
-        return self.name
-
-
-
+        return f"{self.name}: {self.value}"
 
 
 class Image(models.Model):
     """
-    This model creates product-related images.
+    Stores product images and automatically converts them to WebP format.
     """
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images')
-    image_file = ResizedImageField(upload_to='products_images', quality=80, verbose_name='عکس')
-    title = models.CharField(max_length=100, verbose_name='عنوان')
-    description = models.TextField(verbose_name='توضیحات')
-    created = jmodels.jDateTimeField(auto_now_add=True, verbose_name='زمان ایجاد')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='images', verbose_name='product')
+    image_file = ResizedImageField(upload_to='products_images', quality=80, verbose_name='image')
+    title = models.CharField(max_length=100, verbose_name='title')
+    description = models.TextField(verbose_name='description')
+    created = jmodels.jDateTimeField(auto_now_add=True, verbose_name='created at')
 
     class Meta:
-        verbose_name = "تصویر"
-        verbose_name_plural = "تصاویر"
+        verbose_name = "image"
+        verbose_name_plural = "images"
         ordering = ('created',)
         indexes = [models.Index(fields=['created'])]
 
     def __str__(self):
-        return self.title if self.title else "None"
+        return self.title or "Untitled"
 
     def save(self, *args, **kwargs):
         """
-        This function changes the image to webp
+        Saves the image and converts it to optimized WebP format.
         """
-        super().save(*args, **kwargs)  # اول ذخیره‌ی عادی
+        super().save(*args, **kwargs)  # First, save normally
 
-        # مسیر فایل اصلی
         image_path = self.image_file.path
 
-        # باز کردن و تبدیل به WebP
+        # Open and convert to WebP
         img = PilImage.open(image_path)
         if img.mode != "RGB":
             img = img.convert("RGB")
@@ -204,61 +146,56 @@ class Image(models.Model):
         webp_path = os.path.splitext(image_path)[0] + ".webp"
         img.save(webp_path, "WEBP", quality=70, optimize=True, method=6)
 
-        # جایگزین کردن فایل اصلی با webp
+        # Replace the original file with the WebP one
         os.remove(image_path)
         self.image_file.name = os.path.splitext(self.image_file.name)[0] + ".webp"
 
-        super().save(update_fields=["image_file"])  # ذخیره دوباره برای آپدیت مسیر
+        # Update the image file path
+        super().save(update_fields=["image_file"])
 
     def delete(self, *args, **kwargs):
+        """
+        Deletes the image file from storage when the model is deleted.
+        """
         storage, path = self.image_file.storage, self.image_file.path
         storage.delete(path)
         super().delete(*args, **kwargs)
 
 
-
-
-
 class Comment(models.Model):
     """
-    This model creates product-related comments and their replies.
+    Model for user comments on products.
     """
-    product = models.ForeignKey(Product , on_delete=models.CASCADE , related_name='comments')
-    user = models.ForeignKey(ShopUser, on_delete=models.CASCADE, related_name='comments')
-    body = models.TextField(verbose_name="دیدگاه")
-    created = jmodels.jDateTimeField(auto_now_add=True)
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, related_name='replies', null=True, blank=True)
-    # active = models.BooleanField(default=True)
-
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='comments', verbose_name='product')
+    user = models.ForeignKey(ShopUser, on_delete=models.CASCADE, related_name='comments', verbose_name='user')
+    body = models.TextField(verbose_name="comment body")
+    created = jmodels.jDateTimeField(auto_now_add=True, verbose_name='created at')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, related_name='replies', null=True, blank=True, verbose_name='parent comment')
 
     class Meta:
-
-        verbose_name = "نظر"
-        verbose_name_plural = "نظرات"
+        verbose_name = "comment"
+        verbose_name_plural = "comments"
         ordering = ['-created']
-        indexes = [
-            models.Index(fields=['created']),
-        ]
+        indexes = [models.Index(fields=['created'])]
 
     def __str__(self):
-        return f"{self.user} : {self.product}"
+        return f"{self.user} — {self.product}"
 
 
 class Rating(models.Model):
     """
-    This model gives a score to the user for buying a product.
+    Rating model for storing user ratings on products.
     """
-    product = models.ForeignKey(Product, related_name='ratings', on_delete=models.CASCADE)
-    user = models.ForeignKey(ShopUser, related_name='ratings', on_delete=models.CASCADE)
-    score = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)])
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
+    product = models.ForeignKey(Product, related_name='ratings', on_delete=models.CASCADE, verbose_name='product')
+    user = models.ForeignKey(ShopUser, related_name='ratings', on_delete=models.CASCADE, verbose_name='user')
+    score = models.PositiveSmallIntegerField(choices=[(i, i) for i in range(1, 6)], verbose_name='rating score')
+    created = models.DateTimeField(auto_now_add=True, verbose_name='created at')
+    updated = models.DateTimeField(auto_now=True, verbose_name='updated at')
 
     class Meta:
-
-        verbose_name = "امتیاز"
-        verbose_name_plural = "امتیازات"
-        unique_together = ('product', 'user')  # هر کاربر یک امتیاز به ازای هر محصول
+        verbose_name = "rating"
+        verbose_name_plural = "ratings"
+        unique_together = ('product', 'user')  # Each user can rate a product only once
         ordering = ['-updated']
 
     def __str__(self):

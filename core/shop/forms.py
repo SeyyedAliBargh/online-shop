@@ -3,25 +3,42 @@ from .models import *
 
 
 class CommentForm(forms.ModelForm):
+    """
+    Form for submitting product comments.
+    Contains only the 'body' field for user input.
+    """
     class Meta:
         model = Comment
         fields = ['body']
         widgets = {
             "body": forms.Textarea(attrs={
-                "class": "boddy_comment",
-                "placeholder": "توضبحات"
+                "rows": 4,
             }),
         }
 
 class SearchForm(forms.Form):
-    query = forms.CharField(widget=forms.TextInput(attrs={'class':'header__search_input'}))
+    """
+    Simple search form used for querying products.
+    """
+    query = forms.CharField(
+        widget=forms.TextInput(
+            attrs={
+                'placeholder': 'Search for products...',
+            }
+        )
+    )
 
 
 class RatingForm(forms.ModelForm):
+    """
+    Form for submitting a rating for a product (1–5 stars).
+    Uses radio buttons for rating selection.
+    """
     class Meta:
         model = Rating
         fields = ['score']
         widgets = {
-            'score': forms.RadioSelect(choices=[(i, str(i)) for i in range(1,6)]),
-            'comment': forms.Textarea(attrs={'rows':3, 'placeholder':'نظر شما (اختیاری)'}),
+            'score': forms.RadioSelect(
+                choices=[(i, str(i)) for i in range(1, 6)]
+            ),
         }
