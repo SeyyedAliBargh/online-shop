@@ -21,8 +21,12 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('account/', include('account.urls')),
-    path('shop/', include('shop.urls')),
+    path('account/', include('account.urls', namespace='account')),
+    path('order/', include('order.urls', namespace='order')),
+    path('', include('shop.urls', namespace='shop')),
+    path('order/', include('order.urls', namespace='order')),
+    path('cart/', include('cart.urls', namespace='cart')),
+    path('ticket/', include('ticket.urls', namespace='ticket')),
 ]
 # Serve media files during development (DEBUG=True)
 if settings.DEBUG:

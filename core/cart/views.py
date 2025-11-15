@@ -25,7 +25,7 @@ def detail_cart(request):
         'cart': cart,
         'similar_products': similar_products,
     }
-    return render(request, 'cart/detail.html', context)
+    return render(request, 'cart/detail_cart.html', context)
 
 @require_POST
 def add(request):

@@ -101,7 +101,9 @@
         <div class="col-md-6">
             <img src="{{ product.images.first.image_file.url }}" alt="{{ product.name }}" class="img-fluid rounded">
         </div>
-
+        <button id="add-cart">
+            ذخیره در سبد خرید
+        </button>
         <div class="col-md-6">
             <h2>{{ product.name }}</h2>
             <p class="text-muted">{{ product.category.name }}</p>
@@ -210,6 +212,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+</script>
+
+<script>
+    $(document).ready(function (){
+        $('#add-cart').click(function (){
+            $.ajax({
+                type: 'POST',
+                url: '{% url 'cart:add_cart' product.id %}',
+                data: {'csrfmiddlewaretoken': '{{ csrf_token }}'},
+                success: function (response){
+                    $('#item_count').text(response.item_count);
+
+                }
+            });
+        })
+    })
 </script>
 
 <!-- ⭐ Style -->

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django_jalali',
     'order.apps.OrderConfig',
     'cart.apps.CartConfig',
+    'ticket.apps.TicketConfig',
 ]
 
 MIDDLEWARE = [
@@ -137,3 +138,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # user model
 AUTH_USER_MODEL = 'account.ShopUser'
 
+# ZarinPall Payment
+MERCHANT = "00000000-0000-0000-0000-000000000000"
+SANDBOX = False

@@ -14,7 +14,7 @@ from shop.models import Product, Rating, Comment, Category
 # Basic index view (for testing)
 # -----------------------------
 def index(request):
-    return HttpResponse("Hello, world. You're at the polls index.")
+    return render(request, 'shop/index.html')
 
 
 # ---------------------------------

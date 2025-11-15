@@ -83,9 +83,11 @@ If you're displaying a single product (e.g., detail page),
                                 <div class="img-box">
                                     <img class="img-box__img" src="{{ product.images.first.image_file.url }}" alt="products list">
                                 </div>
+                                <a href="{% url 'shop:product_detail' slug=product.slug %}">
                                 <div class="name-box">
                                     <h5 class="name-box__text">{{ product.name | truncatechars:50  }}</h5>
                                 </div>
+                                </a>
                                 <div class="rating-box">
                                     <p class="rating-box__text">{{ product.average_rating  }}</p>
                                     <span class="rating-box__svg">★</span>
