@@ -1,0 +1,170 @@
+{% extends 'parent/base.html' %}
+{% load static %}
+{% block head %}
+    <link rel="stylesheet" type="text/css" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/header.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/footer.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/index.css' %}">
+{% endblock %}
+{% block content %}
+    <p>{{ cart.total_discount }}</p>
+    <div class="container_cart" style="padding: 3rem">
+        {% for item in cart %}
+            {% if item.product %}
+            <div class="item_cart" data-item-id="{{ item.product.id }}">
+                <div class="item_cart_img">
+                    <a href="{% url 'shop:product_detail' item.product.slug  %}">
+                        <img style="width: 10rem" src="{{ item.product.images.first.image_file.url }}" alt="product">
+                    </a>
+                </div>
+                <div class="item_cart_info">
+                    <h3 class="item_cart_title">
+                        <a class="item_cart_title_link" href="{% url 'shop:product_detail' item.product.slug  %}">
+                            نام محصول:{{ item.product.name }}
+                        </a>
+                    </h3>
+                    تعداد محصول:<p class="item_cart_count" id="quantity-{{ item.product.id }}">{{ item.quantity }}</p>
+                    قیمت محصول:<p class="item_cart_price">{{ item.price }}</p>
+                    قیمت کل محصول:<p class="item_cart_total" id="product-price-{{ item.product.id }}" >{{ item.total }}</p>
+                </div>
+                <div>
+                    <button style="width: 2rem" class="item-decrease">-</button>
+                    <button style="width: 2rem" class="item-add">+</button>
+                    <button style="width: 2rem" class="delete">حذف</button>
+                </div>
+            </div>
+            {% else %}
+                این محصول وجوود نداره
+            {% endif %}
+
+        {% endfor %}
+    <div>
+        قیمت کل: <p id="cart-total">{{ cart.get_total_price }}</p>
+        <br>
+        مبلغ تخفیف: <p id="cart-discount">{{ cart.get_discount }}</p>
+        <br>
+        هزینه ارسال: <p id="post-price">{{ cart.get_post_price }}</p>
+        <br>
+        مبلغ قابل پرداخت: <p id="cart-final">{{ cart.get_total_price_after_discount }}</p>
+    </div>
+
+    </div>
+    <h1>{{ order.id }}</h1>
+{#    <div class="discount">#}
+{#        <form id="coupon-form" action="{% url 'coupon:apply_ajax' %}" method="post">#}
+{#            {% csrf_token %}#}
+{#            <input type="text" name="coupon_code" placeholder="کد تخفیف">#}
+{#            <button type="submit">اعمال</button>#}
+{#        </form>#}
+{#    </div>#}
+
+
+    <h2>محصولات مشابه</h2>
+    {% for item in similar_products %}
+        <a href="{% url 'shop:product_detail' item.slug  %}">{{ item }}</a>
+        <br>
+    {% empty %}
+        <p>محصولی موجود نیست</p>
+    {% endfor %}
+    <button>
+        <a href="{% url 'order:verify_phone' %}">ادامه خرید</a>
+    </button>
+    <br>
+    <button>
+        <a href="{% url 'shop:products_list' %}">برگشت به لیست محصولات</a>
+    </button>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+    $(document).ready(function (){
+        $('.item-add').click(function (){
+            updateQuantity('add', $(this).closest('.item_cart').data('item-id'))
+        });
+        $('.item-decrease').click(function (){
+            updateQuantity('decrease', $(this).closest('.item_cart').data('item-id'))
+        });
+        $('.delete').click(function (){
+            deleteProduct($(this).closest('.item_cart').data('item-id'));
+        });
+        function updateQuantity(action, productId){
+            $.ajax({
+                type: 'POST',
+                url: '{% url 'cart:update_quantity' %}',
+                data: {
+                    'action': action,
+                    'product_id': productId,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}',
+                },
+                success:function (response){
+                    if(response.success){
+                       $('#item_count').text(response.item_count);
+                       $('#cart_prices').text(response.get_total_price);
+                       $('#quantity-' + productId).text(response.quantity);
+                       $('#product-price-' + productId).text(response.product_cost);
+                        // {# قیمت کل محصولات، هزینه پستی و هزینه نهایی محصولات #}
+                       $('#total-price').text(response.get_total_price);
+                       $('#post-price').text(response.get_post_price);
+                       $('#final-price').text(response.get_final_price);
+
+                    }
+                }
+            });
+        }
+        function deleteProduct(productId){
+            $.ajax({
+                type: 'POST',
+                url: '{% url 'cart:delete_product'  %}',
+                data: {
+                    'csrfmiddlewaretoken': '{{ csrf_token }}',
+                    'product_id': productId,
+                },
+                success: function (response){
+                    if (response.success){
+                        console.log(response.item_count)
+                        console.log(document.querySelector(".ite"))
+                        $('#item_count').text(response.item_count);
+                        $('#cart_prices').text(response.get_total_price);
+                        $('#total-price').text(response.get_total_price);
+                        $('#post-price').text(response.get_post_price);
+                        $('#final-price').text(response.get_final_price);
+                        $(`.item_cart[data-item-id=${ productId }]`).remove();
+                    }
+                    else {
+                        alert('error delete product!')
+                    }
+                }
+            });
+        }
+    });
+</script>
+
+
+<script>
+$(document).ready(function() {
+    $('#coupon-form').on('submit', function(e) {
+        e.preventDefault();
+
+        $.ajax({
+            url: $(this).attr('action'),
+            method: "POST",
+            data: $(this).serialize(),
+            success: function(response) {
+                if(response.success){
+                    $('#cart-total').text(response.total_price);
+                    $('#cart-discount').text(response.discount);
+                    $('#cart-final').text(response.final_price);
+                    alert(response.message);
+                } else {
+                    alert(response.message);
+                }
+            },
+            error: function(){
+                alert("خطا در برقراری ارتباط با سرور");
+            }
+        });
+    });
+});
+
+</script>
+
+{% endblock %}

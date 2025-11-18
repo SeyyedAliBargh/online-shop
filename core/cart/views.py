@@ -1,3 +1,5 @@
+import traceback
+
 from django.contrib.messages.api import success
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -28,10 +30,9 @@ def detail_cart(request):
     return render(request, 'cart/detail_cart.html', context)
 
 @require_POST
-def add(request):
+def add(request, product_id):
     try:
-        product_id = request.POST['product_id']
-        product = Product.objects.get(id=product_id)
+        product = Product.objects.get(id = product_id)
         cart = Cart(request)
         cart.add(product)
         context = {
@@ -40,11 +41,13 @@ def add(request):
         }
         return JsonResponse(context)
 
-    except:
-        return JsonResponse({'error': 'Something went wrong'})
+    except Exception as e:
 
+        print("خطا در افزودن به سبد خرید:", e)
 
+        traceback.print_exc()
 
+        return JsonResponse({'error': 'مشکلی پیش آمد'}, status=500)
 
 
 @require_POST

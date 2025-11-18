@@ -16,7 +16,7 @@ class Cart:
         product_id = str(product.id)
         if product_id not in self.cart:
             self.cart[product_id] = {'quantity': 1,
-                                     'price': int(product.discount_price),
+                                     'price': int(product.discounted_price),
                                      'weight': product.weight,
                                      'price_before_discount': int(product.original_price),
                                      }
